@@ -171,7 +171,8 @@ class FormHelper extends AppHelper {
  *
  * - `type` Form method defaults to POST
  * - `action`  The controller action the form submits to, (optional).
- * - `url`  The url the form submits to. Can be a string or a url array,
+ * - `url`  The url the form submits to. Can be a string or a url array.  If you use 'url'
+ *    you should leave 'action' undefined.
  * - `default`  Allows for the creation of Ajax forms.
  * - `onsubmit` Used in conjunction with 'default' to create ajax forms.
  * - `inputDefaults` set the default $options for FormHelper::input(). Any options that would
@@ -240,11 +241,14 @@ class FormHelper extends AppHelper {
 		$options);
 		$this->_inputDefaults = $options['inputDefaults'];
 		unset($options['inputDefaults']);
+		
+		if (!isset($options['id'])) {
+			$domId = isset($options['action']) ? $options['action'] : $this->request['action'];
+			$options['id'] = $this->domId($domId . 'Form');
+		}
+		
 		if ($options['action'] === null && $options['url'] === null) {
 			$options['action'] = $this->request->here(false);
-			if (!isset($options['id'])) {
-				$options['id'] = $this->domId($this->request['action'] . 'Form');
-			}
 		} elseif (empty($options['url']) || is_array($options['url'])) {
 			if (empty($options['url']['controller'])) {
 				if (!empty($model) && $model != $this->defaultModel) {
@@ -262,9 +266,6 @@ class FormHelper extends AppHelper {
 				'controller' => $this->_View->viewPath,
 				'action' => $options['action'],
 			);
-			if (!empty($options['action']) && !isset($options['id'])) {
-				$options['id'] = $this->domId($options['action'] . 'Form');
-			}
 			$options['action'] = array_merge($actionDefaults, (array)$options['url']);
 			if (empty($options['action'][0]) && !empty($id)) {
 				$options['action'][0] = $id;
@@ -981,8 +982,11 @@ class FormHelper extends AppHelper {
  * - `value` - the value of the checkbox
  * - `checked` - boolean indicate that this checkbox is checked.
  * - `hiddenField` - boolean to indicate if you want the results of checkbox() to include
- *	a hidden input with a value of ''.
+ *    a hidden input with a value of ''.
  * - `disabled` - create a disabled input.
+ * - `default` - Set the default value for the checkbox.  This allows you to start checkboxes
+ *    as checked, without having to check the POST data.  A matching POST data value, will overwrite
+ *    the default value.
  *
  * @param string $fieldName Name of a field, like this "Modelname.fieldname"
  * @param array $options Array of HTML attributes.
@@ -991,14 +995,21 @@ class FormHelper extends AppHelper {
  * @link http://book.cakephp.org/view/1414/checkbox
  */
 	public function checkbox($fieldName, $options = array()) {
+		$valueOptions = array();
+		if(isset($options['default'])){
+			$valueOptions['default'] = $options['default'];
+			unset($options['default']);
+		}
+
 		$options = $this->_initInputField($fieldName, $options) + array('hiddenField' => true);
-		$value = current($this->value());
+		$value = current($this->value($valueOptions));
 		$output = "";
 
 		if (empty($options['value'])) {
 			$options['value'] = 1;
-		} elseif (
-			(!isset($options['checked']) && !empty($value) && $value === $options['value']) ||
+		}
+		if (
+			(!isset($options['checked']) && !empty($value) && $value == $options['value']) ||
 			!empty($options['checked'])
 		) {
 			$options['checked'] = 'checked';
